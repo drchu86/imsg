@@ -25,6 +25,16 @@ private struct MessageRowColumns {
   let errorCode: Int?
   let dateDelivered: Int?
   let dateRead: Int?
+  // Additional metadata fields (nil if not present in query)
+  let dateEdited: Int?
+  let itemType: Int?
+  let groupTitle: Int?
+  let groupActionType: Int?
+  let wasDowngraded: Int?
+  let expressiveSendStyleId: Int?
+  let balloonBundleId: Int?
+  let subject: Int?
+  let isSpam: Int?
 }
 
 private struct DecodedMessageRow {
@@ -49,6 +59,16 @@ private struct DecodedMessageRow {
   let errorCode: Int
   let dateDelivered: Date?
   let dateRead: Date?
+  // Additional metadata fields
+  let dateEdited: Date?
+  let itemType: Int
+  let groupTitle: String?
+  let groupActionType: Int
+  let wasDowngraded: Bool
+  let expressiveSendStyleId: String?
+  let balloonBundleId: String?
+  let subject: String?
+  let isSpam: Bool
 }
 
 extension MessageStore {
@@ -76,7 +96,9 @@ extension MessageStore {
              (SELECT COUNT(*) FROM message_attachment_join maj WHERE maj.message_id = m.ROWID) AS attachments,
              \(bodyColumn) AS body,
              \(threadOriginatorColumn) AS thread_originator_guid,
-             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read
+             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read,
+             m.date_edited, m.item_type, m.group_title, m.group_action_type, m.was_downgraded,
+             m.expressive_send_style_id, m.balloon_bundle_id, m.subject, m.is_spam
       FROM message m
       JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
       LEFT JOIN handle h ON m.handle_id = h.ROWID
@@ -129,7 +151,16 @@ extension MessageStore {
       isRead: 17,
       errorCode: 18,
       dateDelivered: 19,
-      dateRead: 20
+      dateRead: 20,
+      dateEdited: 21,
+      itemType: 22,
+      groupTitle: 23,
+      groupActionType: 24,
+      wasDowngraded: 25,
+      expressiveSendStyleId: 26,
+      balloonBundleId: 27,
+      subject: 28,
+      isSpam: 29
     )
 
     return try withConnection { db in
@@ -164,7 +195,17 @@ extension MessageStore {
             isRead: decoded.isRead,
             errorCode: decoded.errorCode,
             dateDelivered: decoded.dateDelivered,
-            dateRead: decoded.dateRead
+            dateRead: decoded.dateRead,
+            itemType: decoded.itemType,
+            groupTitle: decoded.groupTitle,
+            groupActionType: decoded.groupActionType,
+            wasDowngraded: decoded.wasDowngraded,
+            dateEdited: decoded.dateEdited,
+            expressiveSendStyleId: decoded.expressiveSendStyleId,
+            balloonBundleId: decoded.balloonBundleId,
+            threadOriginatorGuid: decoded.threadOriginatorGUID.nonEmpty,
+            subject: decoded.subject,
+            isSpam: decoded.isSpam
           ))
       }
       return messages
@@ -215,7 +256,9 @@ extension MessageStore {
              \(bodyColumn) AS body,
              \(threadOriginatorColumn) AS thread_originator_guid,
              \(balloonBundleIDColumn) AS balloon_bundle_id,
-             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read
+             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read,
+             m.date_edited, m.item_type, m.group_title, m.group_action_type, m.was_downgraded,
+             m.expressive_send_style_id, m.subject, m.is_spam
       FROM message m
       LEFT JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
       LEFT JOIN handle h ON m.handle_id = h.ROWID
@@ -250,7 +293,16 @@ extension MessageStore {
       isRead: 19,
       errorCode: 20,
       dateDelivered: 21,
-      dateRead: 22
+      dateRead: 22,
+      dateEdited: 23,
+      itemType: 24,
+      groupTitle: 25,
+      groupActionType: 26,
+      wasDowngraded: 27,
+      expressiveSendStyleId: 28,
+      balloonBundleId: nil,
+      subject: 29,
+      isSpam: 30
     )
 
     let balloonBundleIDIndex = 16
@@ -315,7 +367,17 @@ extension MessageStore {
             isRead: decoded.isRead,
             errorCode: decoded.errorCode,
             dateDelivered: decoded.dateDelivered,
-            dateRead: decoded.dateRead
+            dateRead: decoded.dateRead,
+            itemType: decoded.itemType,
+            groupTitle: decoded.groupTitle,
+            groupActionType: decoded.groupActionType,
+            wasDowngraded: decoded.wasDowngraded,
+            dateEdited: decoded.dateEdited,
+            expressiveSendStyleId: decoded.expressiveSendStyleId,
+            balloonBundleId: balloonBundleID.nonEmpty,
+            threadOriginatorGuid: decoded.threadOriginatorGUID.nonEmpty,
+            subject: decoded.subject,
+            isSpam: decoded.isSpam
           ))
       }
       return messages
@@ -358,6 +420,22 @@ extension MessageStore {
       return (raw ?? 0) > 0 ? appleDate(from: raw) : nil
     }
 
+    // Additional metadata fields (only present if column indices were provided)
+    let dateEdited: Date? = columns.dateEdited.flatMap { idx in
+      let raw = int64Value(row[idx])
+      return (raw ?? 0) > 0 ? appleDate(from: raw) : nil
+    }
+    let itemType = columns.itemType.flatMap { intValue(row[$0]) } ?? 0
+    let groupTitle = columns.groupTitle.flatMap { stringValue(row[$0]).nonEmpty }
+    let groupActionType = columns.groupActionType.flatMap { intValue(row[$0]) } ?? 0
+    let wasDowngraded = columns.wasDowngraded.map { boolValue(row[$0]) } ?? false
+    let expressiveSendStyleId = columns.expressiveSendStyleId.flatMap {
+      stringValue(row[$0]).nonEmpty
+    }
+    let balloonBundleId = columns.balloonBundleId.flatMap { stringValue(row[$0]).nonEmpty }
+    let subject = columns.subject.flatMap { stringValue(row[$0]).nonEmpty }
+    let isSpam = columns.isSpam.map { boolValue(row[$0]) } ?? false
+
     var resolvedText = text.isEmpty ? TypedStreamParser.parseAttributedBody(body) : text
     if isAudioMessage, let transcription = try audioTranscription(for: rowID) {
       resolvedText = transcription
@@ -388,7 +466,16 @@ extension MessageStore {
       isRead: isRead,
       errorCode: errorCode,
       dateDelivered: dateDelivered,
-      dateRead: dateRead
+      dateRead: dateRead,
+      dateEdited: dateEdited,
+      itemType: itemType,
+      groupTitle: groupTitle,
+      groupActionType: groupActionType,
+      wasDowngraded: wasDowngraded,
+      expressiveSendStyleId: expressiveSendStyleId,
+      balloonBundleId: balloonBundleId,
+      subject: subject,
+      isSpam: isSpam
     )
   }
 }

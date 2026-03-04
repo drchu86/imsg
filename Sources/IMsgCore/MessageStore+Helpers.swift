@@ -1,6 +1,10 @@
 import Foundation
 import SQLite
 
+extension String {
+  var nonEmpty: String? { isEmpty ? nil : self }
+}
+
 extension MessageStore {
   struct DecodedReaction: Sendable {
     let isReaction: Bool
@@ -79,6 +83,7 @@ extension MessageStore {
   func stringValue(_ binding: Binding?) -> String {
     return binding as? String ?? ""
   }
+
 
   func int64Value(_ binding: Binding?) -> Int64? {
     if let value = binding as? Int64 { return value }

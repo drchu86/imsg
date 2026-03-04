@@ -274,7 +274,8 @@ public final class MessageStore: @unchecked Sendable {
 extension MessageStore {
   public func attachments(for messageID: Int64) throws -> [AttachmentMeta] {
     let sql = """
-      SELECT a.filename, a.transfer_name, a.uti, a.mime_type, a.total_bytes, a.is_sticker
+      SELECT a.filename, a.transfer_name, a.uti, a.mime_type, a.total_bytes, a.is_sticker,
+             a.transfer_state
       FROM message_attachment_join maj
       JOIN attachment a ON a.ROWID = maj.attachment_id
       WHERE maj.message_id = ?
@@ -288,6 +289,7 @@ extension MessageStore {
         let mimeType = stringValue(row[3])
         let totalBytes = int64Value(row[4]) ?? 0
         let isSticker = boolValue(row[5])
+        let transferState = intValue(row[6]) ?? 0
         let resolved = AttachmentResolver.resolve(filename)
         metas.append(
           AttachmentMeta(
@@ -298,7 +300,8 @@ extension MessageStore {
             totalBytes: totalBytes,
             isSticker: isSticker,
             originalPath: resolved.resolved,
-            missing: resolved.missing
+            missing: resolved.missing,
+            transferState: transferState
           ))
       }
       return metas

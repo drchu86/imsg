@@ -286,6 +286,18 @@ public struct Message: Sendable, Equatable {
   public let errorCode: Int
   public let dateDelivered: Date?
   public let dateRead: Date?
+  /// Non-zero means this is a group event (join/leave/rename), not a real message.
+  /// 1 = member added/removed, 2 = name changed, 4 = avatar changed, 6 = kept in recovery
+  public let itemType: Int
+  public let groupTitle: String?
+  public let groupActionType: Int
+  public let wasDowngraded: Bool
+  public let dateEdited: Date?
+  public let expressiveSendStyleId: String?
+  public let balloonBundleId: String?
+  public let threadOriginatorGuid: String?
+  public let subject: String?
+  public let isSpam: Bool
 
   public init(
     rowID: Int64,
@@ -305,7 +317,17 @@ public struct Message: Sendable, Equatable {
     isRead: Bool = false,
     errorCode: Int = 0,
     dateDelivered: Date? = nil,
-    dateRead: Date? = nil
+    dateRead: Date? = nil,
+    itemType: Int = 0,
+    groupTitle: String? = nil,
+    groupActionType: Int = 0,
+    wasDowngraded: Bool = false,
+    dateEdited: Date? = nil,
+    expressiveSendStyleId: String? = nil,
+    balloonBundleId: String? = nil,
+    threadOriginatorGuid: String? = nil,
+    subject: String? = nil,
+    isSpam: Bool = false
   ) {
     self.rowID = rowID
     self.chatID = chatID
@@ -330,6 +352,16 @@ public struct Message: Sendable, Equatable {
     self.errorCode = errorCode
     self.dateDelivered = dateDelivered
     self.dateRead = dateRead
+    self.itemType = itemType
+    self.groupTitle = groupTitle
+    self.groupActionType = groupActionType
+    self.wasDowngraded = wasDowngraded
+    self.dateEdited = dateEdited
+    self.expressiveSendStyleId = expressiveSendStyleId
+    self.balloonBundleId = balloonBundleId
+    self.threadOriginatorGuid = threadOriginatorGuid
+    self.subject = subject
+    self.isSpam = isSpam
   }
 
   public init(
@@ -398,6 +430,8 @@ public struct AttachmentMeta: Sendable, Equatable {
   public let isSticker: Bool
   public let originalPath: String
   public let missing: Bool
+  /// 0 = not started, 1 = in progress, 2 = downloaded, 5 = failed
+  public let transferState: Int
 
   public init(
     filename: String,
@@ -407,7 +441,8 @@ public struct AttachmentMeta: Sendable, Equatable {
     totalBytes: Int64,
     isSticker: Bool,
     originalPath: String,
-    missing: Bool
+    missing: Bool,
+    transferState: Int = 2
   ) {
     self.filename = filename
     self.transferName = transferName
@@ -417,5 +452,6 @@ public struct AttachmentMeta: Sendable, Equatable {
     self.isSticker = isSticker
     self.originalPath = originalPath
     self.missing = missing
+    self.transferState = transferState
   }
 }

@@ -43,11 +43,35 @@ func messagePayload(
   payload["is_delivered"] = message.isDelivered
   payload["is_read"] = message.isRead
   payload["error"] = message.errorCode
+  payload["item_type"] = message.itemType
+  payload["was_downgraded"] = message.wasDowngraded
+  payload["is_spam"] = message.isSpam
   if let dateDelivered = message.dateDelivered {
     payload["date_delivered"] = CLIISO8601.format(dateDelivered)
   }
   if let dateRead = message.dateRead {
     payload["date_read"] = CLIISO8601.format(dateRead)
+  }
+  if let dateEdited = message.dateEdited {
+    payload["date_edited"] = CLIISO8601.format(dateEdited)
+  }
+  if let groupTitle = message.groupTitle {
+    payload["group_title"] = groupTitle
+  }
+  if message.itemType != 0 {
+    payload["group_action_type"] = message.groupActionType
+  }
+  if let effectId = message.expressiveSendStyleId {
+    payload["expressive_send_style_id"] = effectId
+  }
+  if let balloonId = message.balloonBundleId {
+    payload["balloon_bundle_id"] = balloonId
+  }
+  if let threadGuid = message.threadOriginatorGuid {
+    payload["thread_originator_guid"] = threadGuid
+  }
+  if let subject = message.subject {
+    payload["subject"] = subject
   }
   return payload
 }
@@ -62,6 +86,7 @@ func attachmentPayload(_ meta: AttachmentMeta) -> [String: Any] {
     "is_sticker": meta.isSticker,
     "original_path": meta.originalPath,
     "missing": meta.missing,
+    "transfer_state": meta.transferState,
   ]
 }
 
