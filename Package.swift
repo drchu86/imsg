@@ -12,6 +12,7 @@ let package = Package(
         .package(url: "https://github.com/steipete/Commander.git", from: "0.2.1"),
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.15.5"),
         .package(url: "https://github.com/marmelroy/PhoneNumberKit.git", from: "4.2.5"),
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
     ],
     targets: [
         .target(
@@ -29,6 +30,7 @@ let package = Package(
         dependencies: [
             "IMsgCore",
             .product(name: "Commander", package: "Commander"),
+            .product(name: "Hummingbird", package: "hummingbird"),
         ],
         exclude: [
             "Resources/Info.plist",

@@ -57,6 +57,10 @@ final class RPCServer {
     do {
       json = try JSONSerialization.jsonObject(with: data, options: [])
     } catch {
+      if verbose {
+        Swift.print("RPC Parse Error: \(error.localizedDescription)")
+        Swift.print("Raw Input: [\(line)]")
+      }
       output.sendError(id: nil, error: RPCError.parseError(error.localizedDescription))
       return
     }
@@ -88,6 +92,20 @@ final class RPCServer {
         try await handleWatchUnsubscribe(id: id, params: params)
       case "send":
         try await handleSend(params: params, id: id)
+      case "handles.info":
+        guard let handleID = stringParam(params["id"]) else {
+          throw RPCError.invalidParams("id is required")
+        }
+        if let info = try store.handleInfo(id: handleID) {
+          respond(id: id, result: [
+            "id": info.id,
+            "service": info.service,
+            "country": info.country ?? "",
+            "uncanonicalized_id": info.uncanonicalizedId ?? "",
+          ])
+        } else {
+          respond(id: id, result: NSNull())
+        }
       default:
         output.sendError(id: id, error: RPCError.methodNotFound(method))
       }

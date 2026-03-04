@@ -174,7 +174,6 @@ public final class MessageStore: @unchecked Sendable {
       FROM chat_handle_join chj
       JOIN handle h ON h.ROWID = chj.handle_id
       WHERE chj.chat_id = ?
-      ORDER BY h.id ASC
       """
     return try withConnection { db in
       var results: [String] = []
@@ -187,6 +186,46 @@ public final class MessageStore: @unchecked Sendable {
         }
       }
       return results
+    }
+  }
+
+  public struct HandleInfo: Sendable, Equatable {
+    public let id: String
+    public let service: String
+    public let country: String?
+    public let uncanonicalizedId: String?
+  }
+
+  public func handleInfo(id: String) throws -> HandleInfo? {
+    let sql = "SELECT id, service, country, uncanonicalized_id FROM handle WHERE id = ? OR uncanonicalized_id = ? LIMIT 1"
+    return try withConnection { db in
+      if let row = try db.prepare(sql, id, id).next() {
+        return HandleInfo(
+          id: stringValue(row[0]),
+          service: stringValue(row[1]),
+          country: stringValue(row[2]),
+          uncanonicalizedId: stringValue(row[3])
+        )
+      }
+      return nil
+    }
+  }
+
+  public func preferredService(for handle: String) throws -> String? {
+    // Look for the most recent message for this handle to see which service was used.
+    let sql = """
+      SELECT m.service
+      FROM message m
+      JOIN handle h ON m.handle_id = h.ROWID
+      WHERE h.id = ? OR h.uncanonicalized_id = ?
+      ORDER BY m.date DESC
+      LIMIT 1
+      """
+    return try withConnection { db in
+      if let row = try db.prepare(sql, handle, handle).next() {
+        return stringValue(row[0])
+      }
+      return nil
     }
   }
 

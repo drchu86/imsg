@@ -5,7 +5,7 @@ import IMsgCore
 enum RpcCommand {
   static let spec = CommandSpec(
     name: "rpc",
-    abstract: "Run JSON-RPC over stdin/stdout",
+    abstract: "Run JSON-RPC over stdin/stdout [deprecated: use imsg serve instead]",
     discussion: nil,
     signature: CommandSignatures.withRuntimeFlags(
       CommandSignature(options: CommandSignatures.baseOptions())

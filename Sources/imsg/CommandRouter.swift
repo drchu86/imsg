@@ -16,6 +16,7 @@ struct CommandRouter {
       SendCommand.spec,
       ReactCommand.spec,
       RpcCommand.spec,
+      ServeCommand.spec,
     ]
     let descriptor = CommandDescriptor(
       name: rootName,

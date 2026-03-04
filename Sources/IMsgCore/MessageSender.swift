@@ -5,6 +5,7 @@ public enum MessageService: String, Sendable, CaseIterable {
   case auto
   case imessage
   case sms
+  case rcs
 }
 
 public struct MessageSendOptions: Sendable {
@@ -68,7 +69,14 @@ public struct MessageSender {
     if useChat == false {
       if resolved.region.isEmpty { resolved.region = "US" }
       resolved.recipient = normalizer.normalize(resolved.recipient, region: resolved.region)
-      if resolved.service == .auto { resolved.service = .imessage }
+      if resolved.service == .auto {
+        if let store = try? MessageStore(),
+          let historyService = try? store.preferredService(for: resolved.recipient),
+          let service = MessageService(rawValue: historyService.lowercased())
+        {
+          resolved.service = service
+        }
+      }
     }
 
     if resolved.attachmentPath.isEmpty == false {
@@ -142,32 +150,53 @@ public struct MessageSender {
 
           tell application "Messages"
               if useChat is "1" then
-                  set targetChat to chat id chatId
-                  if theMessage is not "" then
-                      send theMessage to targetChat
-                  end if
-                  if useAttachment is "1" then
-                      set theFile to POSIX file theFilePath as alias
-                      send theFile to targetChat
-                  end if
+                  try
+                      set targetChat to chat id chatId
+                      my sendToBuddy(targetChat, theMessage, useAttachment, theFilePath)
+                  on error
+                      -- Fallback if 'chat id' fails (common for RCS 'any;-;' GUIDs)
+                      if chatId contains "+1" or chatId contains "any;-;" then
+                          set targetService to first service whose service type is SMS
+                          set targetBuddy to buddy theRecipient of targetService
+                          my sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+                      end if
+                  end try
               else
-                  if theService is "sms" then
+                  if theService is "sms" or theService is "rcs" then
                       set targetService to first service whose service type is SMS
-                  else
+                      set targetBuddy to buddy theRecipient of targetService
+                      my sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+                  else if theService is "imessage" then
                       set targetService to first service whose service type is iMessage
-                  end if
-
-                  set targetBuddy to buddy theRecipient of targetService
-                  if theMessage is not "" then
-                      send theMessage to targetBuddy
-                  end if
-                  if useAttachment is "1" then
-                      set theFile to POSIX file theFilePath as alias
-                      send theFile to targetBuddy
+                      set targetBuddy to buddy theRecipient of targetService
+                      my sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+                  else
+                      -- auto mode (no history found or ambiguous)
+                      try
+                          set targetService to first service whose service type is iMessage
+                          set targetBuddy to buddy theRecipient of targetService
+                          my sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+                      on error
+                          set targetService to first service whose service type is SMS
+                          set targetBuddy to buddy theRecipient of targetService
+                          my sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+                      end try
                   end if
               end if
           end tell
       end run
+
+      on sendToBuddy(targetBuddy, theMessage, useAttachment, theFilePath)
+          tell application "Messages"
+              if theMessage is not "" then
+                  send theMessage to targetBuddy
+              end if
+              if useAttachment is "1" then
+                  set theFile to POSIX file theFilePath as alias
+                  send theFile to targetBuddy
+              end if
+          end tell
+      end sendToBuddy
       """
   }
 
@@ -249,6 +278,7 @@ public struct MessageSender {
   private static func runOsascript(source: String, arguments: [String]) throws {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    // We pass the source on stdin, and the arguments after the "-"
     process.arguments = ["-l", "AppleScript", "-"] + arguments
     let stdinPipe = Pipe()
     let stderrPipe = Pipe()
