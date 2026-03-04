@@ -219,11 +219,48 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
       "chat_guid": "any;-;+15551234567",
       "chat_name": "",
       "participants": ["+15551234567"],
-      "is_group": false
+      "is_group": false,
+
+      "is_sent": true,
+      "is_delivered": true,
+      "is_read": true,
+      "error": 0,
+      "date_delivered": "2026-03-03T19:13:14.000Z",
+      "date_read": "2026-03-03T19:14:02.000Z",
+
+      "item_type": 0,
+      "was_downgraded": false,
+      "is_spam": false
     }
   ]
 }
 ```
+
+**Message fields reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | int | Row ID — use as `since_rowid` for stream reconnect |
+| `guid` | string | Apple's internal message identifier |
+| `sender` | string | Handle (phone/email). Empty for your own messages — check `is_from_me`. |
+| `is_from_me` | bool | `true` = you sent it |
+| `is_sent` | bool | Left your device |
+| `is_delivered` | bool | Confirmed received (iMessage only) |
+| `is_read` | bool | Read receipt received (iMessage only) |
+| `error` | int | `0` = ok. Non-zero = problem. `is_from_me && !is_delivered && error != 0` = "Not Delivered" |
+| `date_delivered` | ISO8601? | When delivered (absent if not yet delivered) |
+| `date_read` | ISO8601? | When read (absent if not yet read) |
+| `date_edited` | ISO8601? | When the message was edited (absent if never edited) |
+| `item_type` | int | `0` = normal message. Non-zero = group system event (join/leave/rename) — filter these out if you only want real messages |
+| `group_title` | string? | New group name, present on rename events (`item_type = 2`) |
+| `group_action_type` | int? | `0` = member added, `1` = member removed. Present when `item_type != 0` |
+| `was_downgraded` | bool | iMessage fell back to SMS |
+| `expressive_send_style_id` | string? | Message effect, e.g. `com.apple.MobileSMS.expressivesend.impact` (Slam) |
+| `balloon_bundle_id` | string? | iMessage app extension, e.g. `...gamepigeon.ext`, `...PeerPaymentMessagesExtension` |
+| `thread_originator_guid` | string? | GUID of the root message in a thread |
+| `reply_to_guid` | string? | GUID of the specific message being replied to |
+| `subject` | string? | MMS/SMS subject line |
+| `is_spam` | bool | Marked as spam |
 
 ---
 
