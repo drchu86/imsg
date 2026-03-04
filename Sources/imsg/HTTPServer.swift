@@ -81,10 +81,12 @@ struct HTTPServer {
       let participants = stringArrayParam(json["participants"])
       let startISO = stringParam(json["start"])
       let endISO = stringParam(json["end"])
+      let sinceRowID = int64Param(json["since_rowid"])
       let includeAttachments = boolParam(json["attachments"]) ?? false
       do {
         let filter = try MessageFilter.fromISO(
-          participants: participants, startISO: startISO, endISO: endISO)
+          participants: participants, startISO: startISO, endISO: endISO,
+          sinceRowID: sinceRowID)
         let cache = ChatCache(store: store)
         let messages = try store.messages(chatID: chatID, limit: max(limit, 1), filter: filter)
         let payloads = try messages.map { message in
@@ -148,6 +150,7 @@ struct HTTPServer {
           return errorResponse(
             .badRequest, code: "INVALID_ARGUMENT", message: "missing chat identifier or guid")
         }
+        let sinceRowID = (try? store.maxRowID()) ?? 0
         try MessageSender().send(
           MessageSendOptions(
             recipient: recipient,
@@ -158,7 +161,7 @@ struct HTTPServer {
             chatIdentifier: resolvedChatIdentifier,
             chatGUID: resolvedChatGUID
           ))
-        return jsonResponse(["ok": true])
+        return jsonResponse(["ok": true, "since_rowid": sinceRowID])
       } catch {
         return httpErrorResponse(for: error)
       }

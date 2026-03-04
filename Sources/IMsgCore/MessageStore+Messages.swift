@@ -107,6 +107,10 @@ extension MessageStore {
     var bindings: [Binding?] = [chatID]
 
     if let filter {
+      if let sinceRowID = filter.sinceRowID {
+        sql += " AND m.ROWID > ?"
+        bindings.append(sinceRowID)
+      }
       if let startDate = filter.startDate {
         sql += " AND m.date >= ?"
         bindings.append(MessageStore.appleEpoch(startDate))
