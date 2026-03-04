@@ -279,6 +279,14 @@ public struct Message: Sendable, Equatable {
   /// The GUID of the message being reacted to (only set when isReaction is true)
   public let reactedToGUID: String?
 
+  // Delivery status fields
+  public let isSent: Bool
+  public let isDelivered: Bool
+  public let isRead: Bool
+  public let errorCode: Int
+  public let dateDelivered: Date?
+  public let dateRead: Date?
+
   public init(
     rowID: Int64,
     chatID: Int64,
@@ -291,7 +299,13 @@ public struct Message: Sendable, Equatable {
     attachmentsCount: Int,
     guid: String = "",
     routing: RoutingMetadata = RoutingMetadata(),
-    reaction: ReactionMetadata = ReactionMetadata()
+    reaction: ReactionMetadata = ReactionMetadata(),
+    isSent: Bool = false,
+    isDelivered: Bool = false,
+    isRead: Bool = false,
+    errorCode: Int = 0,
+    dateDelivered: Date? = nil,
+    dateRead: Date? = nil
   ) {
     self.rowID = rowID
     self.chatID = chatID
@@ -310,6 +324,12 @@ public struct Message: Sendable, Equatable {
     self.reactionType = reaction.reactionType
     self.isReactionAdd = reaction.isReactionAdd
     self.reactedToGUID = reaction.reactedToGUID
+    self.isSent = isSent
+    self.isDelivered = isDelivered
+    self.isRead = isRead
+    self.errorCode = errorCode
+    self.dateDelivered = dateDelivered
+    self.dateRead = dateRead
   }
 
   public init(
@@ -329,7 +349,13 @@ public struct Message: Sendable, Equatable {
     isReaction: Bool = false,
     reactionType: ReactionType? = nil,
     isReactionAdd: Bool? = nil,
-    reactedToGUID: String? = nil
+    reactedToGUID: String? = nil,
+    isSent: Bool = false,
+    isDelivered: Bool = false,
+    isRead: Bool = false,
+    errorCode: Int = 0,
+    dateDelivered: Date? = nil,
+    dateRead: Date? = nil
   ) {
     self.init(
       rowID: rowID,
@@ -352,7 +378,13 @@ public struct Message: Sendable, Equatable {
         reactionType: reactionType,
         isReactionAdd: isReactionAdd,
         reactedToGUID: reactedToGUID
-      )
+      ),
+      isSent: isSent,
+      isDelivered: isDelivered,
+      isRead: isRead,
+      errorCode: errorCode,
+      dateDelivered: dateDelivered,
+      dateRead: dateRead
     )
   }
 }

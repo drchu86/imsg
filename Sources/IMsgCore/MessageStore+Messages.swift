@@ -18,6 +18,13 @@ private struct MessageRowColumns {
   let attachments: Int
   let body: Int
   let threadOriginatorGUID: Int
+  // Delivery status fields (nil if not present in query)
+  let isSent: Int?
+  let isDelivered: Int?
+  let isRead: Int?
+  let errorCode: Int?
+  let dateDelivered: Int?
+  let dateRead: Int?
 }
 
 private struct DecodedMessageRow {
@@ -35,6 +42,13 @@ private struct DecodedMessageRow {
   let associatedType: Int?
   let attachments: Int
   let threadOriginatorGUID: String
+  // Delivery status fields
+  let isSent: Bool
+  let isDelivered: Bool
+  let isRead: Bool
+  let errorCode: Int
+  let dateDelivered: Date?
+  let dateRead: Date?
 }
 
 extension MessageStore {
@@ -61,7 +75,8 @@ extension MessageStore {
              \(guidColumn) AS guid, \(associatedGuidColumn) AS associated_guid, \(associatedTypeColumn) AS associated_type,
              (SELECT COUNT(*) FROM message_attachment_join maj WHERE maj.message_id = m.ROWID) AS attachments,
              \(bodyColumn) AS body,
-             \(threadOriginatorColumn) AS thread_originator_guid
+             \(threadOriginatorColumn) AS thread_originator_guid,
+             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read
       FROM message m
       JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
       LEFT JOIN handle h ON m.handle_id = h.ROWID
@@ -108,7 +123,13 @@ extension MessageStore {
       associatedType: 11,
       attachments: 12,
       body: 13,
-      threadOriginatorGUID: 14
+      threadOriginatorGUID: 14,
+      isSent: 15,
+      isDelivered: 16,
+      isRead: 17,
+      errorCode: 18,
+      dateDelivered: 19,
+      dateRead: 20
     )
 
     return try withConnection { db in
@@ -137,7 +158,13 @@ extension MessageStore {
                 ? nil : decoded.threadOriginatorGUID,
               destinationCallerID: decoded.destinationCallerID.isEmpty
                 ? nil : decoded.destinationCallerID
-            )
+            ),
+            isSent: decoded.isSent,
+            isDelivered: decoded.isDelivered,
+            isRead: decoded.isRead,
+            errorCode: decoded.errorCode,
+            dateDelivered: decoded.dateDelivered,
+            dateRead: decoded.dateRead
           ))
       }
       return messages
@@ -187,7 +214,8 @@ extension MessageStore {
              (SELECT COUNT(*) FROM message_attachment_join maj WHERE maj.message_id = m.ROWID) AS attachments,
              \(bodyColumn) AS body,
              \(threadOriginatorColumn) AS thread_originator_guid,
-             \(balloonBundleIDColumn) AS balloon_bundle_id
+             \(balloonBundleIDColumn) AS balloon_bundle_id,
+             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read
       FROM message m
       LEFT JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
       LEFT JOIN handle h ON m.handle_id = h.ROWID
@@ -216,7 +244,13 @@ extension MessageStore {
       associatedType: 12,
       attachments: 13,
       body: 14,
-      threadOriginatorGUID: 15
+      threadOriginatorGUID: 15,
+      isSent: 17,
+      isDelivered: 18,
+      isRead: 19,
+      errorCode: 20,
+      dateDelivered: 21,
+      dateRead: 22
     )
 
     let balloonBundleIDIndex = 16
@@ -275,7 +309,13 @@ extension MessageStore {
               reactionType: reaction.reactionType,
               isReactionAdd: reaction.isReactionAdd,
               reactedToGUID: reaction.reactedToGUID
-            )
+            ),
+            isSent: decoded.isSent,
+            isDelivered: decoded.isDelivered,
+            isRead: decoded.isRead,
+            errorCode: decoded.errorCode,
+            dateDelivered: decoded.dateDelivered,
+            dateRead: decoded.dateRead
           ))
       }
       return messages
@@ -304,6 +344,20 @@ extension MessageStore {
     let body = dataValue(row[columns.body])
     let threadOriginatorGUID = stringValue(row[columns.threadOriginatorGUID])
 
+    // Delivery status fields (only present if column indices were provided)
+    let isSent = columns.isSent.map { boolValue(row[$0]) } ?? false
+    let isDelivered = columns.isDelivered.map { boolValue(row[$0]) } ?? false
+    let isRead = columns.isRead.map { boolValue(row[$0]) } ?? false
+    let errorCode = columns.errorCode.flatMap { intValue(row[$0]) } ?? 0
+    let dateDelivered: Date? = columns.dateDelivered.flatMap { idx in
+      let raw = int64Value(row[idx])
+      return (raw ?? 0) > 0 ? appleDate(from: raw) : nil
+    }
+    let dateRead: Date? = columns.dateRead.flatMap { idx in
+      let raw = int64Value(row[idx])
+      return (raw ?? 0) > 0 ? appleDate(from: raw) : nil
+    }
+
     var resolvedText = text.isEmpty ? TypedStreamParser.parseAttributedBody(body) : text
     if isAudioMessage, let transcription = try audioTranscription(for: rowID) {
       resolvedText = transcription
@@ -328,7 +382,13 @@ extension MessageStore {
       associatedGUID: associatedGUID,
       associatedType: associatedType,
       attachments: attachments,
-      threadOriginatorGUID: threadOriginatorGUID
+      threadOriginatorGUID: threadOriginatorGUID,
+      isSent: isSent,
+      isDelivered: isDelivered,
+      isRead: isRead,
+      errorCode: errorCode,
+      dateDelivered: dateDelivered,
+      dateRead: dateRead
     )
   }
 }

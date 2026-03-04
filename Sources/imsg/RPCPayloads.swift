@@ -39,6 +39,16 @@ func messagePayload(
   payload["chat_name"] = name
   payload["participants"] = participants
   payload["is_group"] = isGroupHandle(identifier: identifier, guid: guid)
+  payload["is_sent"] = message.isSent
+  payload["is_delivered"] = message.isDelivered
+  payload["is_read"] = message.isRead
+  payload["error"] = message.errorCode
+  if let dateDelivered = message.dateDelivered {
+    payload["date_delivered"] = CLIISO8601.format(dateDelivered)
+  }
+  if let dateRead = message.dateRead {
+    payload["date_read"] = CLIISO8601.format(dateRead)
+  }
   return payload
 }
 
