@@ -222,27 +222,31 @@ struct HTTPServer {
       let (byteStream, continuation) = AsyncStream<ByteBuffer>.makeStream()
 
       let messageTask = Task {
-        defer { continuation.finish() }
-        do {
-          for try await message in watchStream {
-            if Task.isCancelled { return }
-            if !filter.allows(message) { continue }
-            if let payload = try? await buildMessagePayload(
-              store: store, cache: cache, message: message,
-              includeAttachments: includeAttachments),
-              let json = try? JSONSerialization.data(withJSONObject: ["message": payload]),
-              let jsonStr = String(data: json, encoding: .utf8)
+        await withTaskCancellationHandler {
+          defer { continuation.finish() }
+          do {
+            for try await message in watchStream {
+              if Task.isCancelled { return }
+              if !filter.allows(message) { continue }
+              if let payload = try? await buildMessagePayload(
+                store: store, cache: cache, message: message,
+                includeAttachments: includeAttachments),
+                let json = try? JSONSerialization.data(withJSONObject: ["message": payload]),
+                let jsonStr = String(data: json, encoding: .utf8)
+              {
+                continuation.yield(sseEvent("message", data: jsonStr))
+              }
+            }
+          } catch {
+            if let data = try? JSONSerialization.data(
+              withJSONObject: ["message": error.localizedDescription]),
+              let jsonStr = String(data: data, encoding: .utf8)
             {
-              continuation.yield(sseEvent("message", data: jsonStr))
+              continuation.yield(sseEvent("error", data: jsonStr))
             }
           }
-        } catch {
-          if let data = try? JSONSerialization.data(
-            withJSONObject: ["message": error.localizedDescription]),
-            let jsonStr = String(data: data, encoding: .utf8)
-          {
-            continuation.yield(sseEvent("error", data: jsonStr))
-          }
+        } onCancel: {
+          continuation.finish()
         }
       }
 
