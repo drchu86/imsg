@@ -32,6 +32,7 @@ struct MessagePayload: Codable {
   let replyToGUID: String?
   let threadOriginatorGUID: String?
   let sender: String
+  let service: String
   let isFromMe: Bool
   let text: String
   let createdAt: String
@@ -56,6 +57,7 @@ struct MessagePayload: Codable {
     self.replyToGUID = message.replyToGUID
     self.threadOriginatorGUID = message.threadOriginatorGUID
     self.sender = message.sender
+    self.service = message.service
     self.isFromMe = message.isFromMe
     self.text = message.text
     self.createdAt = CLIISO8601.format(message.date)
@@ -86,6 +88,7 @@ struct MessagePayload: Codable {
     case replyToGUID = "reply_to_guid"
     case threadOriginatorGUID = "thread_originator_guid"
     case sender
+    case service
     case isFromMe = "is_from_me"
     case text
     case createdAt = "created_at"
