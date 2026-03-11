@@ -137,7 +137,7 @@ All endpoints live under `/v1`. The server only binds to `127.0.0.1` by default 
 
 ### `GET /v1/healthz`
 
-Returns server status, version, and uptime. No auth required even when a token is configured (useful for health checks).
+Returns server status, version, and uptime.
 
 ```bash
 curl http://127.0.0.1:3939/v1/healthz
@@ -214,6 +214,9 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
       "text": "hey",
       "service": "iMessage",
       "created_at": "2026-03-03T19:13:12.596Z",
+      "reply_to_guid": null,
+      "thread_originator_guid": null,
+      "destination_caller_id": null,
       "attachments": [],
       "reactions": [],
       "chat_identifier": "+15551234567",
@@ -232,6 +235,26 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
       "item_type": 0,
       "was_downgraded": false,
       "is_spam": false
+    }
+  ]
+}
+```
+
+**Example with attachment** (`attachments: true`):
+
+```json
+{
+  "attachments": [
+    {
+      "filename": "~/Library/Messages/Attachments/ab/00/photo.jpg",
+      "original_path": "/Users/you/Library/Messages/Attachments/ab/00/photo.jpg",
+      "transfer_name": "photo.jpg",
+      "mime_type": "image/jpeg",
+      "uti": "public.jpeg",
+      "total_bytes": 284921,
+      "is_sticker": false,
+      "missing": false,
+      "transfer_state": 2
     }
   ]
 }
@@ -454,7 +477,9 @@ import (
     "bufio"
     "encoding/json"
     "fmt"
+    "io"
     "net/http"
+    "os"
     "strings"
 )
 
