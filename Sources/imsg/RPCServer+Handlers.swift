@@ -180,7 +180,7 @@ extension RPCServer {
   }
 }
 
-private func buildMessagePayload(
+func buildMessagePayload(
   store: MessageStore,
   cache: ChatCache,
   message: Message,

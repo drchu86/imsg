@@ -44,10 +44,11 @@ struct HTTPServer {
       let cache = ChatCache(store: store)
       do {
         let chats = try store.listChats(limit: max(limit, 1))
-        let payloads = try chats.map { chat -> [String: Any] in
-          let info = try cache.info(chatID: chat.id)
-          let participants = try cache.participants(chatID: chat.id)
-          return chatPayload(
+        var payloads: [[String: Any]] = []
+        for chat in chats {
+          let info = try await cache.info(chatID: chat.id)
+          let participants = try await cache.participants(chatID: chat.id)
+          payloads.append(chatPayload(
             id: chat.id,
             identifier: info?.identifier ?? chat.identifier,
             guid: info?.guid ?? "",
@@ -55,7 +56,7 @@ struct HTTPServer {
             service: info?.service ?? chat.service,
             lastMessageAt: chat.lastMessageAt,
             participants: participants
-          )
+          ))
         }
         return jsonResponse(["chats": payloads])
       } catch {
@@ -89,10 +90,12 @@ struct HTTPServer {
           sinceRowID: sinceRowID)
         let cache = ChatCache(store: store)
         let messages = try store.messages(chatID: chatID, limit: max(limit, 1), filter: filter)
-        let payloads = try messages.map { message in
-          try buildMessagePayload(
+        var payloads: [[String: Any]] = []
+        for message in messages {
+          let payload = try await buildMessagePayload(
             store: store, cache: cache, message: message,
             includeAttachments: includeAttachments)
+          payloads.append(payload)
         }
         return jsonResponse(["messages": payloads])
       } catch {
@@ -139,7 +142,7 @@ struct HTTPServer {
         var resolvedChatGUID = chatGUID
         if let chatID {
           let cache = ChatCache(store: store)
-          guard let info = try cache.info(chatID: chatID) else {
+          guard let info = try await cache.info(chatID: chatID) else {
             return errorResponse(
               .badRequest, code: "INVALID_ARGUMENT", message: "unknown chat_id \(chatID)")
           }
@@ -224,7 +227,7 @@ struct HTTPServer {
           for try await message in watchStream {
             if Task.isCancelled { return }
             if !filter.allows(message) { continue }
-            if let payload = try? buildMessagePayload(
+            if let payload = try? await buildMessagePayload(
               store: store, cache: cache, message: message,
               includeAttachments: includeAttachments),
               let json = try? JSONSerialization.data(withJSONObject: ["message": payload]),
@@ -337,6 +340,14 @@ private func httpErrorResponse(for error: Error) -> Response {
       return errorResponse(
         .internalServerError, code: "INTERNAL",
         message: err.errorDescription ?? "internal error")
+    case .invalidReaction:
+      return errorResponse(
+        .badRequest, code: "INVALID_ARGUMENT",
+        message: err.errorDescription ?? "invalid reaction")
+    case .chatNotFound:
+      return errorResponse(
+        .notFound, code: "NOT_FOUND",
+        message: err.errorDescription ?? "chat not found")
     }
   }
   return errorResponse(
