@@ -270,6 +270,22 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
 | `attachments` | array | Attachment metadata (populated when `attachments=true`) |
 | `reactions` | array | Reactions on this message (populated when `attachments=true`) |
 
+**Attachment fields** (each item in `attachments`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filename` | string | Raw path from the DB (may contain `~`) |
+| `original_path` | string | Tilde-expanded absolute path on disk — use this to read the file |
+| `transfer_name` | string | Display name (e.g. `photo.jpg`) |
+| `mime_type` | string | e.g. `image/jpeg`, `video/mp4` |
+| `uti` | string | Apple Uniform Type Identifier, e.g. `public.jpeg` |
+| `total_bytes` | int | File size in bytes |
+| `is_sticker` | bool | `true` if this is an iMessage sticker |
+| `missing` | bool | `true` if the file doesn't exist at `original_path` |
+| `transfer_state` | int | `0` = not started, `1` = in progress, `2` = downloaded, `5` = failed |
+
+Only read the file when `missing: false` and `transfer_state: 2`.
+
 **Reaction event fields** (present when `is_reaction=true`):
 
 | Field | Type | Description |

@@ -151,6 +151,8 @@ struct AttachmentPayload: Codable {
   let isSticker: Bool
   let originalPath: String
   let missing: Bool
+  /// 0 = not started, 1 = in progress, 2 = downloaded, 5 = failed
+  let transferState: Int
 
   init(meta: AttachmentMeta) {
     self.filename = meta.filename
@@ -161,6 +163,7 @@ struct AttachmentPayload: Codable {
     self.isSticker = meta.isSticker
     self.originalPath = meta.originalPath
     self.missing = meta.missing
+    self.transferState = meta.transferState
   }
 
   enum CodingKeys: String, CodingKey {
@@ -172,6 +175,7 @@ struct AttachmentPayload: Codable {
     case isSticker = "is_sticker"
     case originalPath = "original_path"
     case missing = "missing"
+    case transferState = "transfer_state"
   }
 }
 
