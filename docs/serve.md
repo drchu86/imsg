@@ -199,6 +199,7 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
 | `participants` | string[] | no | Filter by sender handle |
 | `start` | ISO8601 | no | Earliest date (inclusive) |
 | `end` | ISO8601 | no | Latest date (exclusive) |
+| `since_rowid` | int | no | Only return messages with row ID > this value |
 | `attachments` | bool | no (false) | Include attachment + reaction metadata |
 
 ```json
@@ -241,9 +242,13 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | int | Row ID — use as `since_rowid` for stream reconnect |
+| `chat_id` | int | Chat this message belongs to |
 | `guid` | string | Apple's internal message identifier |
 | `sender` | string | Handle (phone/email). Empty for your own messages — check `is_from_me`. |
+| `service` | string | `"iMessage"` or `"SMS"` |
 | `is_from_me` | bool | `true` = you sent it |
+| `text` | string | Message text content |
+| `created_at` | ISO8601 | When the message was created |
 | `is_sent` | bool | Left your device |
 | `is_delivered` | bool | Confirmed received (iMessage only) |
 | `is_read` | bool | Read receipt received (iMessage only) |
@@ -261,6 +266,19 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
 | `reply_to_guid` | string? | GUID of the specific message being replied to |
 | `subject` | string? | MMS/SMS subject line |
 | `is_spam` | bool | Marked as spam |
+| `destination_caller_id` | string? | For `is_from_me` messages, the Apple ID / phone number the message was sent from. Useful when the account has multiple numbers. |
+| `attachments` | array | Attachment metadata (populated when `attachments=true`) |
+| `reactions` | array | Reactions on this message (populated when `attachments=true`) |
+
+**Reaction event fields** (present when `is_reaction=true`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `is_reaction` | bool | `true` if this message is a reaction event (tapback) |
+| `reaction_type` | string? | Reaction name: `"love"`, `"like"`, `"dislike"`, `"laugh"`, `"emphasize"`, `"question"` |
+| `reaction_emoji` | string? | Emoji for the reaction, e.g. `"❤️"` |
+| `is_reaction_add` | bool? | `true` = reaction added, `false` = reaction removed |
+| `reacted_to_guid` | string? | GUID of the message that was reacted to |
 
 ---
 
@@ -298,8 +316,10 @@ curl -X POST http://127.0.0.1:3939/v1/messages/send \
 | `region` | string | Region code for SMS normalization (default `"US"`). |
 
 ```json
-{ "ok": true }
+{ "ok": true, "since_rowid": 641579 }
 ```
+
+Use `since_rowid` to poll for the sent message after delivery: call `POST /v1/messages/history` with `since_rowid` set to this value to fetch messages that arrived after the send (including your own outbound message once it's written to the DB).
 
 ---
 
