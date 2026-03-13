@@ -74,9 +74,13 @@ struct HTTPServer {
       else {
         return errorResponse(.badRequest, code: "INVALID_JSON", message: "Invalid JSON body")
       }
-      guard let chatID = int64Param(json["chat_id"]) else {
+      var chatIDs: [Int64] = []
+      if let single = int64Param(json["chat_id"]) { chatIDs.append(single) }
+      chatIDs += int64ArrayParam(json["chat_ids"])
+      chatIDs = chatIDs.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+      guard !chatIDs.isEmpty else {
         return errorResponse(
-          .badRequest, code: "INVALID_ARGUMENT", message: "chat_id is required")
+          .badRequest, code: "INVALID_ARGUMENT", message: "chat_id or chat_ids is required")
       }
       let limit = intParam(json["limit"]) ?? 50
       let participants = stringArrayParam(json["participants"])
@@ -89,7 +93,7 @@ struct HTTPServer {
           participants: participants, startISO: startISO, endISO: endISO,
           sinceRowID: sinceRowID)
         let cache = ChatCache(store: store)
-        let messages = try store.messages(chatID: chatID, limit: max(limit, 1), filter: filter)
+        let messages = try store.messages(chatIDs: chatIDs, limit: max(limit, 1), filter: filter)
         var payloads: [[String: Any]] = []
         for message in messages {
           let payload = try await buildMessagePayload(

@@ -136,6 +136,13 @@ func boolParam(_ value: Any?) -> Bool? {
   return nil
 }
 
+func int64ArrayParam(_ value: Any?) -> [Int64] {
+  if let list = value as? [Any] {
+    return list.compactMap { int64Param($0) }
+  }
+  return []
+}
+
 func stringArrayParam(_ value: Any?) -> [String] {
   if let list = value as? [String] { return list }
   if let list = value as? [Any] {

@@ -31,8 +31,12 @@ extension RPCServer {
   }
 
   func handleMessagesHistory(id: Any?, params: [String: Any]) async throws {
-    guard let chatID = int64Param(params["chat_id"]) else {
-      throw RPCError.invalidParams("chat_id is required")
+    var chatIDs: [Int64] = []
+    if let single = int64Param(params["chat_id"]) { chatIDs.append(single) }
+    chatIDs += int64ArrayParam(params["chat_ids"])
+    chatIDs = chatIDs.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+    guard !chatIDs.isEmpty else {
+      throw RPCError.invalidParams("chat_id or chat_ids is required")
     }
     let limit = intParam(params["limit"]) ?? 50
     let participants = stringArrayParam(params["participants"])
@@ -44,7 +48,7 @@ extension RPCServer {
       startISO: startISO,
       endISO: endISO
     )
-    let filtered = try store.messages(chatID: chatID, limit: max(limit, 1), filter: filter)
+    let filtered = try store.messages(chatIDs: chatIDs, limit: max(limit, 1), filter: filter)
 
     var payloads: [[String: Any]] = []
     payloads.reserveCapacity(filtered.count)

@@ -194,8 +194,9 @@ curl -X POST http://127.0.0.1:3939/v1/messages/history \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `chat_id` | int | yes | Chat row ID (from `/v1/chats`) |
-| `limit` | int | no (50) | Max messages |
+| `chat_id` | int | one of `chat_id`/`chat_ids` | Single chat row ID (from `/v1/chats`) |
+| `chat_ids` | int[] | one of `chat_id`/`chat_ids` | Multiple chat row IDs — returns messages from all, newest first |
+| `limit` | int | no (50) | Max messages total |
 | `participants` | string[] | no | Filter by sender handle |
 | `start` | ISO8601 | no | Earliest date (inclusive) |
 | `end` | ISO8601 | no | Latest date (exclusive) |

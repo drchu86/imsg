@@ -216,6 +216,147 @@ extension MessageStore {
     }
   }
 
+  public func messages(chatIDs: [Int64], limit: Int, filter: MessageFilter?) throws -> [Message] {
+    precondition(!chatIDs.isEmpty, "chatIDs must not be empty")
+    let bodyColumn = hasAttributedBody ? "m.attributedBody" : "NULL"
+    let guidColumn = hasReactionColumns ? "m.guid" : "NULL"
+    let associatedGuidColumn = hasReactionColumns ? "m.associated_message_guid" : "NULL"
+    let associatedTypeColumn = hasReactionColumns ? "m.associated_message_type" : "NULL"
+    let destinationCallerColumn = hasDestinationCallerID ? "m.destination_caller_id" : "NULL"
+    let audioMessageColumn = hasAudioMessageColumn ? "m.is_audio_message" : "0"
+    let threadOriginatorColumn =
+      hasThreadOriginatorGUIDColumn ? "m.thread_originator_guid" : "NULL"
+    let reactionFilter =
+      hasReactionColumns
+      ? " AND (m.associated_message_type IS NULL OR m.associated_message_type < 2000 OR m.associated_message_type > 3006)"
+      : ""
+    let placeholders = Array(repeating: "?", count: chatIDs.count).joined(separator: ",")
+    var sql = """
+      SELECT m.ROWID, cmj.chat_id, m.handle_id, h.id, IFNULL(m.text, '') AS text, m.date, m.is_from_me, m.service,
+             \(audioMessageColumn) AS is_audio_message, \(destinationCallerColumn) AS destination_caller_id,
+             \(guidColumn) AS guid, \(associatedGuidColumn) AS associated_guid, \(associatedTypeColumn) AS associated_type,
+             (SELECT COUNT(*) FROM message_attachment_join maj WHERE maj.message_id = m.ROWID) AS attachments,
+             \(bodyColumn) AS body,
+             \(threadOriginatorColumn) AS thread_originator_guid,
+             m.is_sent, m.is_delivered, m.is_read, m.error, m.date_delivered, m.date_read,
+             m.date_edited, m.item_type, m.group_title, m.group_action_type, m.was_downgraded,
+             m.expressive_send_style_id, m.balloon_bundle_id, m.subject, m.is_spam
+      FROM message m
+      JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+      LEFT JOIN handle h ON m.handle_id = h.ROWID
+      WHERE cmj.chat_id IN (\(placeholders))\(reactionFilter)
+      """
+    var bindings: [Binding?] = chatIDs.map { $0 as Binding? }
+
+    if let filter {
+      if let sinceRowID = filter.sinceRowID {
+        sql += " AND m.ROWID > ?"
+        bindings.append(sinceRowID)
+      }
+      if let startDate = filter.startDate {
+        sql += " AND m.date >= ?"
+        bindings.append(MessageStore.appleEpoch(startDate))
+      }
+      if let endDate = filter.endDate {
+        sql += " AND m.date < ?"
+        bindings.append(MessageStore.appleEpoch(endDate))
+      }
+      if !filter.participants.isEmpty {
+        let pPlaceholders = Array(repeating: "?", count: filter.participants.count).joined(
+          separator: ",")
+        sql +=
+          " AND COALESCE(NULLIF(h.id,''), \(destinationCallerColumn)) COLLATE NOCASE IN (\(pPlaceholders))"
+        for participant in filter.participants {
+          bindings.append(participant)
+        }
+      }
+    }
+
+    sql += " ORDER BY m.date DESC LIMIT ?"
+    bindings.append(limit)
+    let columns = MessageRowColumns(
+      rowID: 0,
+      chatID: 1,
+      handleID: 2,
+      sender: 3,
+      text: 4,
+      date: 5,
+      isFromMe: 6,
+      service: 7,
+      isAudioMessage: 8,
+      destinationCallerID: 9,
+      guid: 10,
+      associatedGUID: 11,
+      associatedType: 12,
+      attachments: 13,
+      body: 14,
+      threadOriginatorGUID: 15,
+      isSent: 16,
+      isDelivered: 17,
+      isRead: 18,
+      errorCode: 19,
+      dateDelivered: 20,
+      dateRead: 21,
+      dateEdited: 22,
+      itemType: 23,
+      groupTitle: 24,
+      groupActionType: 25,
+      wasDowngraded: 26,
+      expressiveSendStyleId: 27,
+      balloonBundleId: 28,
+      subject: 29,
+      isSpam: 30
+    )
+
+    return try withConnection { db in
+      var messages: [Message] = []
+      for row in try db.prepare(sql, bindings) {
+        let decoded = try decodeMessageRow(row, columns: columns, fallbackChatID: nil)
+        let replyToGUID = replyToGUID(
+          associatedGuid: decoded.associatedGUID,
+          associatedType: decoded.associatedType
+        )
+        messages.append(
+          Message(
+            rowID: decoded.rowID,
+            chatID: decoded.chatID,
+            sender: decoded.sender,
+            text: decoded.text,
+            date: decoded.date,
+            isFromMe: decoded.isFromMe,
+            service: decoded.service,
+            handleID: decoded.handleID,
+            attachmentsCount: decoded.attachments,
+            guid: decoded.guid,
+            routing: Message.RoutingMetadata(
+              replyToGUID: replyToGUID,
+              threadOriginatorGUID: decoded.threadOriginatorGUID.isEmpty
+                ? nil : decoded.threadOriginatorGUID,
+              destinationCallerID: decoded.destinationCallerID.isEmpty
+                ? nil : decoded.destinationCallerID
+            ),
+            isSent: decoded.isSent,
+            isDelivered: decoded.isDelivered,
+            isRead: decoded.isRead,
+            errorCode: decoded.errorCode,
+            dateDelivered: decoded.dateDelivered,
+            dateRead: decoded.dateRead,
+            itemType: decoded.itemType,
+            groupTitle: decoded.groupTitle,
+            groupActionType: decoded.groupActionType,
+            wasDowngraded: decoded.wasDowngraded,
+            dateEdited: decoded.dateEdited,
+            expressiveSendStyleId: decoded.expressiveSendStyleId,
+            balloonBundleId: decoded.balloonBundleId,
+            threadOriginatorGuid: decoded.threadOriginatorGUID.nonEmpty,
+            subject: decoded.subject,
+            isSpam: decoded.isSpam
+          ))
+      }
+      return messages
+    }
+  }
+
   public func messagesAfter(afterRowID: Int64, chatID: Int64?, limit: Int) throws -> [Message] {
     return try messagesAfter(
       afterRowID: afterRowID,
