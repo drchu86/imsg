@@ -352,7 +352,7 @@ curl -X POST http://127.0.0.1:3939/v1/messages/send \
 | `chat_guid` | string | Fallback chat target. |
 | `text` | string | Message text. At least `text` or `file` required. |
 | `file` | string | Absolute path to attachment file. |
-| `service` | string | `"auto"` (default), `"iMessage"`, or `"SMS"`. |
+| `service` | string | `"auto"` (default), `"imessage"`, or `"sms"`. |
 | `region` | string | Region code for SMS normalization (default `"US"`). |
 
 ```json
